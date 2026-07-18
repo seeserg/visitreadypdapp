@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  /* Primary: deep blue */
+  --color-primary-50: #eef4fb;
+  --color-primary-100: #d7e6f5;
+  --color-primary-200: #b0cdec;
+  --color-primary-300: #82adde;
+  --color-primary-400: #5288cc;
+  --color-primary-500: #33699f;
+  --color-primary-600: #1e4d7b;
+  --color-primary-700: #1a3f63;
+  --color-primary-800: #17334f;
+  --color-primary-900: #142a41;
+  --color-primary-950: #0c1a29;
+
+  /* Accent: teal */
+  --color-accent-50: #eefbfa;
+  --color-accent-100: #d3f4f1;
+  --color-accent-200: #a9e8e3;
+  --color-accent-300: #74d5cf;
+  --color-accent-400: #43b9b4;
+  --color-accent-500: #299b98;
+  --color-accent-600: #1e7c7b;
+  --color-accent-700: #1c6362;
+  --color-accent-800: #1c4f4f;
+  --color-accent-900: #1a4342;
+  --color-accent-950: #0a2524;
+
+  /* Semantic */
+  --color-success-50: #eefcf3;
+  --color-success-500: #22a35f;
+  --color-success-600: #17854c;
+  --color-warning-50: #fff8e8;
+  --color-warning-500: #d99a1b;
+  --color-warning-600: #b57a10;
+  --color-danger-50: #fdeeee;
+  --color-danger-500: #d64545;
+  --color-danger-600: #b32e2e;
+}
+
+:root {
+  color-scheme: light;
+  --font-size-scale: 1;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+  }
+}
+
+html {
+  font-size: calc(16px * var(--font-size-scale));
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
+
+:root[data-theme="dark"] body {
+  @apply bg-slate-950 text-slate-100;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) body {
+    @apply bg-slate-950 text-slate-100;
+  }
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-accent-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.force-reduced-motion *, .force-reduced-motion *::before, .force-reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.large-text {
+  --font-size-scale: 1.25;
+}
+
+.high-contrast {
+  filter: contrast(1.15);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
