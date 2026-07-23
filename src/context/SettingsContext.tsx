@@ -29,17 +29,23 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     const root = document.documentElement
-    const resolved =
-      settings.theme === 'system'
-        ? window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light'
-        : settings.theme
-    root.setAttribute('data-theme', resolved)
     root.classList.toggle('large-text', settings.largeText)
     root.classList.toggle('high-contrast', settings.highContrast)
     root.classList.toggle('force-reduced-motion', settings.reducedMotion)
-  }, [settings.theme, settings.largeText, settings.highContrast, settings.reducedMotion])
+  }, [settings.largeText, settings.highContrast, settings.reducedMotion])
+
+  React.useEffect(() => {
+    const root = document.documentElement
+    if (settings.theme !== 'system') {
+      root.setAttribute('data-theme', settings.theme)
+      return
+    }
+    const media = window.matchMedia('(prefers-color-scheme: dark)')
+    const apply = () => root.setAttribute('data-theme', media.matches ? 'dark' : 'light')
+    apply()
+    media.addEventListener('change', apply)
+    return () => media.removeEventListener('change', apply)
+  }, [settings.theme])
 
   async function updateSettings(patch: Partial<AppSettings>) {
     const next = { ...settings, ...patch }

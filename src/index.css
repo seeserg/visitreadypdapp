@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/*
+ * Tailwind v4 keys the `dark:` variant off `prefers-color-scheme` by default, which ignores our
+ * in-app Light/Dark/System selector entirely. SettingsContext always resolves the chosen theme
+ * (including "system") to an explicit `data-theme="dark"|"light"` attribute on <html>, so point
+ * `dark:` at that attribute instead — this is what every `dark:` utility class in the app relies on.
+ */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @theme {
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 

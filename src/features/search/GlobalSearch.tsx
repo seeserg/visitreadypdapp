@@ -29,13 +29,15 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
     }
     let cancelled = false
     async function run() {
-      const [symptoms, meds, bp, falls, questions, notes] = await Promise.all([
+      const [symptoms, meds, bp, falls, questions, notes, appointments, journal] = await Promise.all([
         db.symptoms.toArray(),
         db.medications.toArray(),
         db.bloodPressure.toArray(),
         db.falls.toArray(),
         db.questions.toArray(),
         db.caregiverNotes.toArray(),
+        db.appointments.toArray(),
+        db.journal.toArray(),
       ])
       const found: SearchResult[] = []
       for (const s of symptoms) {
@@ -61,6 +63,14 @@ export function GlobalSearch({ open, onOpenChange }: { open: boolean; onOpenChan
       for (const n of notes) {
         if (`${n.observation} ${n.category}`.toLowerCase().includes(q))
           found.push({ id: n.id, title: n.category, subtitle: n.observation.slice(0, 60), path: '/caregiver-notes' })
+      }
+      for (const a of appointments) {
+        if (`${a.neurologistName ?? ''} ${a.location ?? ''} ${a.notes ?? ''}`.toLowerCase().includes(q))
+          found.push({ id: a.id, title: `Appointment — ${formatDate(a.date)}`, subtitle: a.neurologistName ?? a.location ?? '', path: '/settings' })
+      }
+      for (const j of journal) {
+        if (j.text.toLowerCase().includes(q))
+          found.push({ id: j.id, title: j.text.slice(0, 60), subtitle: formatDate(j.date), path: '/journal' })
       }
       if (!cancelled) setResults(found.slice(0, 20))
     }

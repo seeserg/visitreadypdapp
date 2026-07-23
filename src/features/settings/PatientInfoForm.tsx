@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { ShieldCheck } from 'lucide-react'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,10 +36,17 @@ export function PatientInfoForm() {
       }}
       className="flex flex-col gap-4"
     >
+      <div className="flex items-start gap-2 rounded-xl bg-accent-50 p-3 text-sm text-accent-800 dark:bg-accent-900/30 dark:text-accent-200">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
+        <p>
+          Every field below is optional. VisitReady PD works fully anonymously — fill in only what's useful for your
+          own reports; nothing here is required and nothing ever leaves this device.
+        </p>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-2">
           <Label htmlFor="p-name">Name</Label>
-          <Input id="p-name" {...field('name')} />
+          <Input id="p-name" placeholder="Optional" {...field('name')} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="p-dob">Date of birth</Label>
@@ -46,28 +54,24 @@ export function PatientInfoForm() {
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="p-diag">Diagnosis year</Label>
-          <Input id="p-diag" {...field('diagnosisYear')} />
+          <Input id="p-diag" placeholder="Optional" {...field('diagnosisYear')} />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="p-neuro">Neurologist</Label>
-          <Input id="p-neuro" {...field('neurologistName')} />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="p-appt">Upcoming appointment date</Label>
-          <Input id="p-appt" type="date" {...field('appointmentDate')} />
+          <Label htmlFor="p-neuro">Usual neurologist</Label>
+          <Input id="p-neuro" placeholder="Optional" {...field('neurologistName')} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="p-ec-name">Emergency contact name</Label>
-          <Input id="p-ec-name" {...field('emergencyContactName')} />
+          <Input id="p-ec-name" placeholder="Optional" {...field('emergencyContactName')} />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="p-ec-phone">Emergency contact phone</Label>
-          <Input id="p-ec-phone" type="tel" {...field('emergencyContactPhone')} />
+          <Input id="p-ec-phone" type="tel" placeholder="Optional" {...field('emergencyContactPhone')} />
         </div>
       </div>
       <div className="flex flex-col gap-2">
         <Label htmlFor="p-notes">Notes</Label>
-        <Textarea id="p-notes" {...field('notes')} />
+        <Textarea id="p-notes" placeholder="Optional" {...field('notes')} />
       </div>
       <div>
         <Button type="submit">Save patient information</Button>

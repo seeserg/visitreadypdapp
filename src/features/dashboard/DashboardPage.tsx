@@ -1,21 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Activity, Pill, HeartPulse, AlertTriangle, HelpCircle, Users, FileText, CalendarClock } from 'lucide-react'
+import { Activity, Pill, HeartPulse, AlertTriangle, HelpCircle, Users, FileText, CalendarClock, History } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { db } from '@/db/db'
 import { useSettings } from '@/context/SettingsContext'
+import { getNextAppointment, getLastAppointment, daysBetween } from '@/features/appointments/utils'
 import { formatDate, formatDateTime } from '@/lib/utils'
-
-function daysUntil(dateStr?: string) {
-  if (!dateStr) return null
-  const target = new Date(dateStr)
-  const now = new Date()
-  target.setHours(0, 0, 0, 0)
-  now.setHours(0, 0, 0, 0)
-  return Math.round((target.getTime() - now.getTime()) / 86400000)
-}
 
 export function DashboardPage() {
   const navigate = useNavigate()
@@ -27,8 +19,12 @@ export function DashboardPage() {
   const falls = useLiveQuery(() => db.falls.orderBy('date').reverse().limit(3).toArray(), [])
   const notes = useLiveQuery(() => db.caregiverNotes.orderBy('date').reverse().limit(3).toArray(), [])
   const openQuestions = useLiveQuery(() => db.questions.filter((q) => !q.answered).count(), [])
+  const appointments = useLiveQuery(() => db.appointments.toArray(), [])
 
-  const appointmentDays = daysUntil(settings.patient.appointmentDate)
+  const nextAppointment = appointments ? getNextAppointment(appointments) : undefined
+  const lastAppointment = appointments ? getLastAppointment(appointments) : undefined
+  const appointmentDays = nextAppointment ? daysBetween(nextAppointment.date) : null
+  const daysSinceLast = lastAppointment ? Math.abs(daysBetween(lastAppointment.date)) : null
 
   const quickAdds = [
     { label: 'Log symptom', icon: Activity, to: '/symptoms' },
@@ -49,28 +45,39 @@ export function DashboardPage() {
       </div>
 
       <Card>
-        <CardContent className="flex flex-col items-start justify-between gap-4 py-5 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-3">
-            <CalendarClock className="h-8 w-8 text-primary-700 dark:text-primary-300" />
-            <div>
-              <p className="font-semibold text-slate-900 dark:text-slate-50">Upcoming Appointment</p>
-              {settings.patient.appointmentDate ? (
-                <p className="text-slate-600 dark:text-slate-300">
-                  {formatDate(settings.patient.appointmentDate)}
-                  {appointmentDays !== null && (
-                    <span className="ml-2 text-accent-700 dark:text-accent-300">
-                      ({appointmentDays === 0 ? 'Today' : appointmentDays > 0 ? `in ${appointmentDays} days` : `${Math.abs(appointmentDays)} days ago`})
-                    </span>
-                  )}
-                </p>
-              ) : (
-                <p className="text-slate-500 dark:text-slate-400">No appointment set — add one in Settings.</p>
-              )}
+        <CardContent className="flex flex-col gap-4 py-5">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <CalendarClock className="h-8 w-8 text-primary-700 dark:text-primary-300" />
+              <div>
+                <p className="font-semibold text-slate-900 dark:text-slate-50">Upcoming Appointment</p>
+                {nextAppointment ? (
+                  <p className="text-slate-600 dark:text-slate-300">
+                    {formatDate(nextAppointment.date)}
+                    {appointmentDays !== null && (
+                      <span className="ml-2 text-accent-700 dark:text-accent-300">
+                        ({appointmentDays === 0 ? 'Today' : `in ${appointmentDays} days`})
+                      </span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-slate-500 dark:text-slate-400">No appointment set — add one in Settings.</p>
+                )}
+              </div>
             </div>
+            <Button onClick={() => navigate('/reports')}>
+              <FileText className="h-5 w-5" /> Generate Appointment Report
+            </Button>
           </div>
-          <Button onClick={() => navigate('/reports')}>
-            <FileText className="h-5 w-5" /> Generate Appointment Report
-          </Button>
+          {lastAppointment && (
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+              <History className="h-5 w-5 shrink-0 text-slate-400" />
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Last appointment: {formatDate(lastAppointment.date)}
+                {daysSinceLast !== null && ` (${daysSinceLast} days ago)`}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

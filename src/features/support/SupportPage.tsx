@@ -36,7 +36,7 @@ export function SupportPage() {
             If this app has helped you prepare for appointments, consider supporting development.
           </p>
           <a
-            href="https://www.buymeacoffee.com/"
+            href="https://buymeacoffee.com/seeser"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex min-h-14 items-center gap-2 rounded-xl bg-warning-500 px-8 text-lg font-semibold text-white hover:bg-warning-600"

@@ -6,6 +6,8 @@ import type {
   FallEntry,
   Question,
   CaregiverNote,
+  Appointment,
+  JournalEntry,
   AppSettings,
 } from '@/types'
 
@@ -18,20 +20,36 @@ export interface BackupData {
   falls: FallEntry[]
   questions: Question[]
   caregiverNotes: CaregiverNote[]
+  appointments: Appointment[]
+  journal: JournalEntry[]
   settings: AppSettings | undefined
 }
 
 export async function collectBackupData(): Promise<BackupData> {
-  const [symptoms, medications, bloodPressure, falls, questions, caregiverNotes, settings] = await Promise.all([
+  const [symptoms, medications, bloodPressure, falls, questions, caregiverNotes, appointments, journal, settings] = await Promise.all([
     db.symptoms.toArray(),
     db.medications.toArray(),
     db.bloodPressure.toArray(),
     db.falls.toArray(),
     db.questions.toArray(),
     db.caregiverNotes.toArray(),
+    db.appointments.toArray(),
+    db.journal.toArray(),
     db.settings.get('settings'),
   ])
-  return { version: 1, exportedAt: new Date().toISOString(), symptoms, medications, bloodPressure, falls, questions, caregiverNotes, settings }
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    symptoms,
+    medications,
+    bloodPressure,
+    falls,
+    questions,
+    caregiverNotes,
+    appointments,
+    journal,
+    settings,
+  }
 }
 
 function download(filename: string, content: BlobPart, type: string) {
@@ -103,7 +121,17 @@ export async function decryptBackup(fileText: string, password: string): Promise
 export async function importBackupData(data: BackupData) {
   await db.transaction(
     'rw',
-    [db.symptoms, db.medications, db.bloodPressure, db.falls, db.questions, db.caregiverNotes, db.settings],
+    [
+      db.symptoms,
+      db.medications,
+      db.bloodPressure,
+      db.falls,
+      db.questions,
+      db.caregiverNotes,
+      db.appointments,
+      db.journal,
+      db.settings,
+    ],
     async () => {
       if (data.symptoms) await db.symptoms.bulkPut(data.symptoms)
       if (data.medications) await db.medications.bulkPut(data.medications)
@@ -111,6 +139,8 @@ export async function importBackupData(data: BackupData) {
       if (data.falls) await db.falls.bulkPut(data.falls)
       if (data.questions) await db.questions.bulkPut(data.questions)
       if (data.caregiverNotes) await db.caregiverNotes.bulkPut(data.caregiverNotes)
+      if (data.appointments) await db.appointments.bulkPut(data.appointments)
+      if (data.journal) await db.journal.bulkPut(data.journal)
       if (data.settings) await db.settings.put(data.settings)
     }
   )
@@ -138,6 +168,8 @@ export async function exportCSV() {
     csvSection('Falls', data.falls),
     csvSection('Questions', data.questions),
     csvSection('Caregiver Notes', data.caregiverNotes),
+    csvSection('Appointments', data.appointments),
+    csvSection('Journal', data.journal),
   ]
   download(`visitready-export-${data.exportedAt.slice(0, 10)}.csv`, sections.join('\n'), 'text/csv')
 }

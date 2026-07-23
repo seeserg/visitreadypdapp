@@ -6,18 +6,47 @@ import type {
   FallEntry,
   Question,
   CaregiverNote,
+  JournalEntry,
   PatientInfo,
 } from '@/types'
 import { formatDate } from '@/lib/utils'
 
 export interface ReportData {
   patient: PatientInfo
+  rangeLabel: string
   symptoms: SymptomEntry[]
   medications: Medication[]
   bloodPressure: BloodPressureEntry[]
   falls: FallEntry[]
   questions: Question[]
   caregiverNotes: CaregiverNote[]
+  journal: JournalEntry[]
+  /** Prior period of equal length, used to compute period-over-period trend callouts. Omit or leave empty to skip. */
+  previous?: {
+    symptoms: SymptomEntry[]
+    falls: FallEntry[]
+  }
+}
+
+// Characters outside this set have no WinAnsi (CP1252) encoding and would otherwise crash pdf-lib's
+// standard-font text drawing (e.g. arrows, emoji, most non-Latin scripts). Common "smart" punctuation
+// that users' devices auto-substitute (curly quotes, en/em dash, bullet, ellipsis) IS covered here.
+const WINANSI_EXTRAS = new Set([
+  0x20ac, 0x201a, 0x0192, 0x201e, 0x2026, 0x2020, 0x2021, 0x02c6, 0x2030, 0x0160, 0x2039, 0x0152, 0x017d,
+  0x2018, 0x2019, 0x201c, 0x201d, 0x2022, 0x2013, 0x2014, 0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x017e, 0x0178,
+])
+
+function sanitizeForPdf(str: string): string {
+  let out = ''
+  for (const ch of str) {
+    const code = ch.codePointAt(0) ?? 0
+    if ((code >= 0x20 && code <= 0x7e) || (code >= 0xa0 && code <= 0xff) || WINANSI_EXTRAS.has(code)) {
+      out += ch
+    } else {
+      out += '?'
+    }
+  }
+  return out
 }
 
 const PAGE_W = 612
@@ -50,6 +79,8 @@ class ReportBuilder {
 
   newPage() {
     this.page = this.doc.addPage([PAGE_W, PAGE_H])
+    const drawText = this.page.drawText.bind(this.page)
+    this.page.drawText = (text, options) => drawText(sanitizeForPdf(text), options)
     this.pageNum++
     this.y = PAGE_H - MARGIN
     if (this.pageNum > 1) {
@@ -84,7 +115,8 @@ class ReportBuilder {
     this.y -= size + 6
   }
 
-  wrapText(str: string, maxWidth: number, size: number, font: PDFFont) {
+  wrapText(rawStr: string, maxWidth: number, size: number, font: PDFFont) {
+    const str = sanitizeForPdf(rawStr)
     const words = str.split(/\s+/)
     const lines: string[] = []
     let cur = ''
@@ -181,18 +213,36 @@ export async function generateAppointmentReport(data: ReportData): Promise<Uint8
   b.page.drawRectangle({ x: 0, y: PAGE_H - 110, width: PAGE_W, height: 110, color: PRIMARY })
   b.page.drawText('VisitReady PD', { x: MARGIN, y: PAGE_H - 50, size: 24, font: b.bold, color: rgb(1, 1, 1) })
   b.page.drawText('Appointment Preparation Summary', { x: MARGIN, y: PAGE_H - 74, size: 12, font: b.font, color: rgb(0.85, 0.9, 0.97) })
-  b.page.drawText(`Generated ${formatDate(new Date())}`, { x: MARGIN, y: PAGE_H - 92, size: 9, font: b.font, color: rgb(0.75, 0.82, 0.93) })
+  b.page.drawText(`Generated ${formatDate(new Date())}  ·  ${data.rangeLabel}`, {
+    x: MARGIN,
+    y: PAGE_H - 92,
+    size: 9,
+    font: b.font,
+    color: rgb(0.75, 0.82, 0.93),
+  })
   b.y = PAGE_H - 132
 
-  // Patient info
+  // Patient info — every field is optional, so only render what was actually provided
+  const patientRows = (
+    [
+      ['Name', data.patient.name ?? ''],
+      ['Date of birth', data.patient.dateOfBirth ? formatDate(data.patient.dateOfBirth) : ''],
+      ['Diagnosis year', data.patient.diagnosisYear ?? ''],
+      ['Usual neurologist', data.patient.neurologistName ?? ''],
+      [
+        'Emergency contact',
+        data.patient.emergencyContactName
+          ? `${data.patient.emergencyContactName}${data.patient.emergencyContactPhone ? ' · ' + data.patient.emergencyContactPhone : ''}`
+          : '',
+      ],
+    ] as [string, string][]
+  ).filter(([, value]) => value)
+
   b.sectionTitle('Patient Information')
-  b.keyValueRow('Name', data.patient.name)
-  b.keyValueRow('Date of birth', data.patient.dateOfBirth ? formatDate(data.patient.dateOfBirth) : '')
-  b.keyValueRow('Diagnosis year', data.patient.diagnosisYear ?? '')
-  b.keyValueRow('Neurologist', data.patient.neurologistName ?? '')
-  b.keyValueRow('Appointment date', data.patient.appointmentDate ? formatDate(data.patient.appointmentDate) : '')
-  if (data.patient.emergencyContactName) {
-    b.keyValueRow('Emergency contact', `${data.patient.emergencyContactName} ${data.patient.emergencyContactPhone ? '· ' + data.patient.emergencyContactPhone : ''}`)
+  if (patientRows.length === 0) {
+    b.paragraph('No patient information was provided — this report was generated anonymously.', { color: MUTED })
+  } else {
+    for (const [label, value] of patientRows) b.keyValueRow(label, value)
   }
   b.y -= 8
 
@@ -244,6 +294,49 @@ export async function generateAppointmentReport(data: ReportData): Promise<Uint8
       b.page.drawText(avg.toFixed(1), { x: MARGIN + 246, y: b.y, size: 8, font: b.font, color: MUTED })
       b.y -= 14
     }
+  }
+  b.y -= 4
+
+  // Trends & Changes — period-over-period comparison, only shown when a prior period is available
+  if (data.previous && (data.previous.symptoms.length > 0 || data.previous.falls.length > 0 || data.symptoms.length > 0 || data.falls.length > 0)) {
+    b.sectionTitle('Trends & Changes vs. Prior Period')
+    const avgSeverity = (entries: SymptomEntry[]) =>
+      entries.length ? entries.reduce((a, s) => a + s.severity, 0) / entries.length : null
+
+    const byTypeCurrent = new Map<string, SymptomEntry[]>()
+    for (const s of data.symptoms) byTypeCurrent.set(s.type, [...(byTypeCurrent.get(s.type) ?? []), s])
+    const byTypePrev = new Map<string, SymptomEntry[]>()
+    for (const s of data.previous.symptoms) byTypePrev.set(s.type, [...(byTypePrev.get(s.type) ?? []), s])
+
+    const types = new Set([...byTypeCurrent.keys(), ...byTypePrev.keys()])
+    let anyRow = false
+    for (const type of types) {
+      const curAvg = avgSeverity(byTypeCurrent.get(type) ?? [])
+      const prevAvg = avgSeverity(byTypePrev.get(type) ?? [])
+      if (curAvg === null || prevAvg === null) continue
+      anyRow = true
+      const delta = curAvg - prevAvg
+      const arrow = delta > 0.05 ? 'UP' : delta < -0.05 ? 'DOWN' : 'FLAT'
+      const color = delta > 0.05 ? DANGER : delta < -0.05 ? rgb(0.13, 0.64, 0.37) : MUTED
+      b.ensureSpace(14)
+      b.page.drawText(type, { x: MARGIN, y: b.y, size: 9, font: b.font, color: TEXT })
+      b.page.drawText(`${prevAvg.toFixed(1)} -> ${curAvg.toFixed(1)}`, { x: MARGIN + 160, y: b.y, size: 9, font: b.font, color: MUTED })
+      b.page.drawText(`${arrow} ${delta > 0 ? '+' : ''}${delta.toFixed(1)}`, { x: MARGIN + 260, y: b.y, size: 9, font: b.bold, color })
+      b.y -= 14
+    }
+    if (!anyRow) {
+      b.paragraph('Not enough symptom data in both periods to compare.', { size: 9, color: MUTED })
+    }
+
+    b.y -= 4
+    const fallDelta = data.falls.length - data.previous.falls.length
+    const fallArrow = fallDelta > 0 ? 'UP' : fallDelta < 0 ? 'DOWN' : 'FLAT'
+    const fallColor = fallDelta > 0 ? DANGER : fallDelta < 0 ? rgb(0.13, 0.64, 0.37) : MUTED
+    b.ensureSpace(14)
+    b.page.drawText('Falls & near falls', { x: MARGIN, y: b.y, size: 9, font: b.font, color: TEXT })
+    b.page.drawText(`${data.previous.falls.length} -> ${data.falls.length}`, { x: MARGIN + 160, y: b.y, size: 9, font: b.font, color: MUTED })
+    b.page.drawText(`${fallArrow} ${fallDelta > 0 ? '+' : ''}${fallDelta}`, { x: MARGIN + 260, y: b.y, size: 9, font: b.bold, color: fallColor })
+    b.y -= 14
   }
   b.y -= 4
 
@@ -323,6 +416,22 @@ export async function generateAppointmentReport(data: ReportData): Promise<Uint8
       b.page.drawText(`${n.category} — ${formatDate(n.date)}`, { x: MARGIN, y: b.y, size: 9, font: b.bold, color: ACCENT })
       b.y -= 13
       b.paragraph(n.observation, { size: 9, x: MARGIN + 8 })
+    }
+  }
+  b.y -= 4
+
+  // Journal
+  b.sectionTitle('Journal Highlights')
+  if (data.journal.length === 0) {
+    b.paragraph('No journal entries recorded.', { color: MUTED })
+  } else {
+    const sorted = [...data.journal].sort((a, c) => c.date.localeCompare(a.date)).slice(0, 15)
+    for (const j of sorted) {
+      b.ensureSpace(16)
+      const tags = [j.mood, j.sleepHours != null ? `${j.sleepHours}h sleep` : null].filter(Boolean).join(' · ')
+      b.page.drawText(`${formatDate(j.date)}${tags ? '  ·  ' + tags : ''}`, { x: MARGIN, y: b.y, size: 9, font: b.bold, color: ACCENT })
+      b.y -= 13
+      b.paragraph(j.text, { size: 9, x: MARGIN + 8 })
     }
   }
 

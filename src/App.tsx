@@ -9,6 +9,7 @@ import { BloodPressurePage } from '@/features/blood-pressure/BloodPressurePage'
 import { FallsPage } from '@/features/falls/FallsPage'
 import { QuestionsPage } from '@/features/questions/QuestionsPage'
 import { CaregiverPage } from '@/features/caregiver/CaregiverPage'
+import { JournalPage } from '@/features/journal/JournalPage'
 import { ReportsPage } from '@/features/reports/ReportsPage'
 import { SettingsPage } from '@/features/settings/SettingsPage'
 import { AboutPage } from '@/features/about/AboutPage'
@@ -28,6 +29,7 @@ export default function App() {
               <Route path="/falls" element={<FallsPage />} />
               <Route path="/questions" element={<QuestionsPage />} />
               <Route path="/caregiver-notes" element={<CaregiverPage />} />
+              <Route path="/journal" element={<JournalPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />

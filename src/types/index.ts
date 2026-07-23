@@ -114,12 +114,31 @@ export interface CaregiverNote {
   updatedAt: string
 }
 
+export interface Appointment {
+  id: string
+  date: string // ISO date, may be past or future
+  neurologistName?: string
+  location?: string
+  notes?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface JournalEntry {
+  id: string
+  date: string // ISO date
+  text: string
+  mood?: string
+  sleepHours?: number
+  createdAt: string
+  updatedAt: string
+}
+
 export interface PatientInfo {
-  name: string
+  name?: string
   dateOfBirth?: string
   diagnosisYear?: string
   neurologistName?: string
-  appointmentDate?: string
   emergencyContactName?: string
   emergencyContactPhone?: string
   notes?: string
